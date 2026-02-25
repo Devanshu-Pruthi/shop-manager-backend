@@ -5,7 +5,15 @@ export interface IPhone {
     model: string;
     imeiNumber: string;
     price: number;
+    condition: 'New' | 'Old';
     purchaseDate: Date;
+}
+
+export interface IExchangePhone {
+    brand: string;
+    model: string;
+    imeiNumber: string;
+    estimatedValue: number;
 }
 
 export interface ICustomer extends Document {
@@ -17,8 +25,9 @@ export interface ICustomer extends Document {
     state?: string;
     referredBy?: string;
     phones: IPhone[];
+    exchangePhones: IExchangePhone[];
     totalPurchaseAmount: number;
-    paymentMethod: 'Cash' | 'Card' | 'UPI' | 'EMI';
+    paymentMethod: 'Cash' | 'Card' | 'UPI' | 'EMI' | 'Replacement';
     registrationDate: Date;
     lastVisit: Date;
     notes?: string;
@@ -35,7 +44,19 @@ const PhoneSchema = new Schema<IPhone>({
     model: String,
     imeiNumber: String,
     price: Number,
+    condition: {
+        type: String,
+        enum: ['New', 'Old'],
+        default: 'New'
+    },
     purchaseDate: Date
+});
+
+const ExchangePhoneSchema = new Schema<IExchangePhone>({
+    brand: String,
+    model: String,
+    imeiNumber: String,
+    estimatedValue: Number
 });
 
 const CustomerSchema = new Schema<ICustomer>({
@@ -60,13 +81,14 @@ const CustomerSchema = new Schema<ICustomer>({
     state: String,
     referredBy: String,
     phones: [PhoneSchema],
+    exchangePhones: [ExchangePhoneSchema],
     totalPurchaseAmount: {
         type: Number,
         default: 0
     },
     paymentMethod: {
         type: String,
-        enum: ['Cash', 'Card', 'UPI', 'EMI'],
+        enum: ['Cash', 'Card', 'UPI', 'EMI', 'Replacement'],
         default: 'Cash'
     },
     registrationDate: {

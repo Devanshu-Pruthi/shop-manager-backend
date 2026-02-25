@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Customer from '../models/customer.model';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { uploadToBase64ToS3 } from '../utils/s3';
 
 // @desc    Get all customers
 // @route   GET /api/customers
@@ -48,7 +49,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     try {
         const totalCustomers = await Customer.countDocuments();
 
-        // Aggregate phones sold and total revenue across ALL customers
+        // Aggregate new phones, old phones, and total revenue
         const stats = await Customer.aggregate([
             {
                 $group: {
@@ -59,6 +60,24 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
             }
         ]);
 
+        // Count new vs old phones separately
+        const conditionStats = await Customer.aggregate([
+            { $unwind: "$phones" },
+            {
+                $group: {
+                    _id: { $ifNull: ["$phones.condition", "New"] },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        let newPhonesSold = 0;
+        let oldPhonesSold = 0;
+        conditionStats.forEach((s: any) => {
+            if (s._id === 'New') newPhonesSold = s.count;
+            else if (s._id === 'Old') oldPhonesSold = s.count;
+        });
+
         const recentCustomers = await Customer.find()
             .sort({ createdAt: -1 })
             .limit(3)
@@ -67,6 +86,8 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
         res.status(200).json({
             totalCustomers,
             totalPhonesSold: stats.length > 0 ? stats[0].totalPhonesSold : 0,
+            newPhonesSold,
+            oldPhonesSold,
             totalRevenue: stats.length > 0 ? stats[0].totalRevenue : 0,
             recentCustomers
         });
@@ -79,7 +100,6 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
 // @route   GET /api/customers/:id
 // @access  Public
 export const getCustomer = async (req: Request, res: Response): Promise<void> => {
-    // ... existing getCustomer code is already there but I'll make sure it's accessible
     try {
         const customer = await Customer.findById(req.params.id).populate('createdBy', 'name role');
         if (!customer) {
@@ -101,6 +121,15 @@ export const createCustomer = async (req: AuthRequest, res: Response): Promise<v
             ...req.body,
             createdBy: req.user?._id
         };
+
+        // Handle Adhar Photo Uploads to S3
+        if (req.body.adharPhotoFront) {
+            customerData.adharPhotoFront = await uploadToBase64ToS3(req.body.adharPhotoFront, `adhar_front_${req.body.name}`);
+        }
+        if (req.body.adharPhotoBack) {
+            customerData.adharPhotoBack = await uploadToBase64ToS3(req.body.adharPhotoBack, `adhar_back_${req.body.name}`);
+        }
+
         const customer = await Customer.create(customerData);
         res.status(201).json(customer);
     } catch (error: any) {
@@ -113,7 +142,17 @@ export const createCustomer = async (req: AuthRequest, res: Response): Promise<v
 // @access  Public
 export const updateCustomer = async (req: Request, res: Response): Promise<void> => {
     try {
-        const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, {
+        const customerData = { ...req.body };
+
+        // Handle Adhar Photo Uploads to S3 if updated
+        if (req.body.adharPhotoFront && req.body.adharPhotoFront.startsWith('data:image')) {
+            customerData.adharPhotoFront = await uploadToBase64ToS3(req.body.adharPhotoFront, `adhar_front_${req.body.name || 'updated'}`);
+        }
+        if (req.body.adharPhotoBack && req.body.adharPhotoBack.startsWith('data:image')) {
+            customerData.adharPhotoBack = await uploadToBase64ToS3(req.body.adharPhotoBack, `adhar_back_${req.body.name || 'updated'}`);
+        }
+
+        const customer = await Customer.findByIdAndUpdate(req.params.id, customerData, {
             new: true,
             runValidators: true
         });

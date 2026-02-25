@@ -14,7 +14,6 @@ const seedAdmin = async () => {
                 password: 'TaranMobiles@2955',
                 role: 'admin'
             });
-            console.log('Seed: Static Admin user created');
         }
     } catch (error) {
         console.error('Seed Error:', error);
