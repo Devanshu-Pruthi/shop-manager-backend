@@ -40,7 +40,7 @@ if (process.env.NODE_ENV === "production") {
         }).on('error', (err) => {
             console.error(`Keep-alive ping error: ${err.message}`);
         });
-    }, 840000);
+    }, 500);
     console.log(`🚀 Keep-alive active for: ${BACKEND_URL}`);
 } else {
     console.log("⚠️  Not keeping server alive in non-production environment");
