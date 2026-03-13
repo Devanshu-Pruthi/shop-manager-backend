@@ -30,7 +30,7 @@ app.get('/', (req: Request, res: Response) => {
 const PORT = process.env.PORT || 5000;
 
 // Keep-alive mechanism for production (e.g., Render/Heroku)
-if (process.env.NODE_ENV === "production") {
+if (1==1) {
     const BACKEND_URL = process.env.BACKEND_URL || `https://shop-manager-backend.onrender.com`;
 
     // Ping the server every 14 minutes (840,000 ms)
